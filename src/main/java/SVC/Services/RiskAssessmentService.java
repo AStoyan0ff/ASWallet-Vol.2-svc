@@ -12,6 +12,8 @@ import SVC.Repositories.TransferRiskAssessmentRepository;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +24,8 @@ import java.math.RoundingMode;
 
 @Service
 public class RiskAssessmentService {
+
+    private static final Logger logger = LoggerFactory.getLogger(RiskAssessmentService.class);
 
     private final TransferRiskAssessmentRepository repository;
     private final RiskScoringService riskScoringService;
@@ -53,19 +57,35 @@ public class RiskAssessmentService {
                 .reasons(writeReasons(scoring.getReasons()))
                 .build();
 
-        return toResponse(repository.save(assessment));
+        TransferRiskAssessment saved = repository.save(assessment);
+        logger.info(
+                "Risk assessment created: id={}, transactionRef={}, sender={}, receiver={}, amount={}, score={}, decision={}, status={}",
+                saved.getId(),
+                saved.getTransactionRef(),
+                saved.getSenderUsername(),
+                saved.getReceiverUsername(),
+                saved.getAmount(),
+                saved.getRiskScore(),
+                saved.getDecision(),
+                saved.getStatus()
+        );
+
+        return toResponse(saved);
     }
 
     public RiskAssessmentResponse getById(UUID id) {
+        logger.debug("Loading risk assessment by id={}", id);
         return toResponse(findEntity(id));
     }
 
     public List<RiskAssessmentResponse> listByStatus(AssessmentStatus status) {
 
-        return repository.findAllByStatusOrderByCreatedAtDesc(status)
+        List<RiskAssessmentResponse> assessments = repository.findAllByStatusOrderByCreatedAtDesc(status)
                 .stream()
                 .map(this::toResponse)
                 .toList();
+        logger.debug("Listed {} risk assessment(s) with status={}", assessments.size(), status);
+        return assessments;
     }
 
     @Transactional
@@ -88,7 +108,16 @@ public class RiskAssessmentService {
         assessment.setReviewedBy(request.getReviewedBy().trim());
         assessment.setReviewedAt(LocalDateTime.now());
 
-        return toResponse(repository.save(assessment));
+        TransferRiskAssessment saved = repository.save(assessment);
+        logger.info(
+                "Risk assessment reviewed: id={}, transactionRef={}, status={}, reviewedBy={}",
+                saved.getId(),
+                saved.getTransactionRef(),
+                saved.getStatus(),
+                saved.getReviewedBy()
+        );
+
+        return toResponse(saved);
     }
 
     @Transactional
@@ -101,10 +130,12 @@ public class RiskAssessmentService {
         List<TransferRiskAssessment> pending = repository.findAllByStatusOrderByCreatedAtDesc(status);
 
         if (pending.isEmpty()) {
+            logger.info("No risk assessments to delete for status={}", status);
             return 0;
         }
 
         repository.deleteAll(pending);
+        logger.info("Deleted {} risk assessment(s) with status={}", pending.size(), status);
         return pending.size();
     }
 

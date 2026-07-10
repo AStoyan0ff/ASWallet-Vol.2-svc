@@ -95,8 +95,8 @@ Admin **Reject** or **Delete all** → main app refunds sender / cancels transfe
 ### Create assessment
 
 ```bash
-curl -X POST http://localhost:8081/api/risk-assessments \
-  -H "Content-Type: application/json" \
+curl -X POST http://localhost:8081/api/risk-assessments 
+  -H "Content-Type: application/json" 
   -d '{
     "transactionRef": "550e8400-e29b-41d4-a716-446655440000",
     "senderUsername": "Plamen",
@@ -136,8 +136,8 @@ Example response:
 Only assessments with `decision=REVIEW` and `status=PENDING` can be reviewed.
 
 ```bash
-curl -X PATCH http://localhost:8081/api/risk-assessments/{id}/review \
-  -H "Content-Type: application/json" \
+curl -X PATCH http://localhost:8081/api/risk-assessments/{id}/review 
+  -H "Content-Type: application/json" 
   -d '{
     "status": "APPROVED",
     "reviewedBy": "admin"
