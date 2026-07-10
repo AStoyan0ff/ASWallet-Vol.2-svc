@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.math.RoundingMode;
 
 @Service
 public class RiskAssessmentService {
@@ -44,7 +45,7 @@ public class RiskAssessmentService {
                 .transactionRef(request.getTransactionRef())
                 .senderUsername(request.getSenderUsername().trim())
                 .receiverUsername(request.getReceiverUsername().trim())
-                .amount(request.getAmount().setScale(2, java.math.RoundingMode.HALF_UP))
+                .amount(request.getAmount().setScale(2, RoundingMode.HALF_UP))
                 .riskScore(scoring.getScore())
                 .riskLevel(scoring.getLevel())
                 .decision(scoring.getDecision())
@@ -90,6 +91,23 @@ public class RiskAssessmentService {
         return toResponse(repository.save(assessment));
     }
 
+    @Transactional
+    public int deleteAllByStatus(AssessmentStatus status) {
+
+        if (status != AssessmentStatus.PENDING) {
+            throw new InvalidReviewStateException("Only pending assessments can be deleted.");
+        }
+
+        List<TransferRiskAssessment> pending = repository.findAllByStatusOrderByCreatedAtDesc(status);
+
+        if (pending.isEmpty()) {
+            return 0;
+        }
+
+        repository.deleteAll(pending);
+        return pending.size();
+    }
+
     private AssessmentStatus resolveInitialStatus(RiskDecision decision) {
 
         return switch (decision) {
@@ -101,8 +119,9 @@ public class RiskAssessmentService {
 
     private TransferRiskAssessment findEntity(UUID id) {
 
-        return repository.findById(id)
-                .orElseThrow(() -> new RiskAssessmentNotFoundException("Risk assessment not found."));
+        return repository.findById(id).orElseThrow(() ->
+                new RiskAssessmentNotFoundException("Risk assessment not found."));
+
     }
 
     private String writeReasons(List<String> reasons) {

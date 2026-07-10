@@ -1,4 +1,7 @@
-# ASWallet-Vol.2-svc
+<h1 align="center">
+  💳 ASWallet-Vol.2-svc 💳
+</h1>
+
 
 Standalone **Transfer Risk Assessment** microservice for the [ASWallet-Vol.2](https://github.com/AStoyan0ff/ASWallet-Vol.2) main application.
 
@@ -18,9 +21,7 @@ Admins review flagged transfers from `/admin/risk-reviews` in the main app.
 ### 1. Database
 
 ```sql
-CREATE DATABASE IF NOT EXISTS as_wallet_svc
-  CHARACTER SET utf8mb4
-  COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS as_wallet_svc;
 ```
 
 ### 2. Configuration
@@ -28,7 +29,7 @@ CREATE DATABASE IF NOT EXISTS as_wallet_svc
 Default settings: `src/main/resources/application.properties`
 
 ```properties
-spring.datasource.password=${DB_PASSWORD:changeme}
+spring.datasource.password=${DB_PASSWORD:change me}
 app.risk.threshold.review=40
 app.risk.threshold.block=70
 ```
@@ -46,7 +47,6 @@ JPA `ddl-auto=update` creates/updates tables on startup.
 Start **before** or together with the main app on port 8080:
 
 ```powershell
-cd D:\Projects\ASWallet-Vol.2-svc
 mvn spring-boot:run
 ```
 
@@ -58,9 +58,11 @@ Service listens on `http://localhost:8081`.
 
 | Trigger | Feign call | Effect |
 |---------|------------|--------|
-| User confirms transfer | `POST /api/risk-assessments` | Score transfer, persist assessment |
+| User confirms transfer | `POST /api/risk-assessments` | Score transfer, persist assessment (with `transactionRef`) |
 | Admin opens risk reviews | `GET /api/risk-assessments?status=PENDING` | List pending reviews |
+| Admin loads single review | `GET /api/risk-assessments/{id}` | Fetch assessment before approve/reject |
 | Admin approves / rejects | `PATCH /api/risk-assessments/{id}/review` | Update assessment status |
+| Admin delete all reviews | `DELETE /api/risk-assessments?status=PENDING` | Remove all pending assessments |
 
 Main app configuration (`ASWallet-Vol.2`):
 
@@ -71,11 +73,14 @@ app.risk-service.fail-open=true
 spring.cloud.openfeign.httpclient.hc5.enabled=true
 ```
 
-| Decision | Main app behaviour |
-|----------|-------------------|
-| `ALLOW` | Transfer proceeds as PENDING |
-| `REVIEW` | Transfer proceeds; assessment stays `PENDING` for admin |
-| `BLOCK` | Transfer rejected; user sees error message |
+| Decision | Microservice status | Main app behaviour |
+|----------|---------------------|-------------------|
+| `ALLOW` | `APPROVED` | Transfer saved as `PENDING`; scheduler completes after ~5 s |
+| `REVIEW` | `PENDING` | Transfer saved as `PENDING_RISK_REVIEW`; held until admin action |
+| `BLOCK` | `REJECTED` | Transfer rejected before creation; user sees error |
+
+Admin **Approve** → main app completes wallet transfer → PATCH assessment to `APPROVED`.  
+Admin **Reject** or **Delete all** → main app refunds sender / cancels transfer → PATCH or bulk DELETE in MS.
 
 ## REST API
 
@@ -85,6 +90,7 @@ spring.cloud.openfeign.httpclient.hc5.enabled=true
 | `GET` | `/api/risk-assessments/{id}` | Get assessment by id |
 | `GET` | `/api/risk-assessments?status=PENDING` | List assessments by status (`APPROVED`, `REJECTED`, `PENDING`) |
 | `PATCH` | `/api/risk-assessments/{id}/review` | Admin approve/reject a pending review |
+| `DELETE` | `/api/risk-assessments?status=PENDING` | Delete all assessments with given status (204 No Content) |
 
 ### Create assessment
 
@@ -92,6 +98,7 @@ spring.cloud.openfeign.httpclient.hc5.enabled=true
 curl -X POST http://localhost:8081/api/risk-assessments \
   -H "Content-Type: application/json" \
   -d '{
+    "transactionRef": "550e8400-e29b-41d4-a716-446655440000",
     "senderUsername": "Plamen",
     "receiverUsername": "Georgi",
     "amount": 200.00,
@@ -111,6 +118,7 @@ Example response:
 ```json
 {
   "id": "…",
+  "transactionRef": "550e8400-e29b-41d4-a716-446655440000",
   "senderUsername": "Plamen",
   "receiverUsername": "Georgi",
   "amount": 200.00,
@@ -135,6 +143,14 @@ curl -X PATCH http://localhost:8081/api/risk-assessments/{id}/review \
     "reviewedBy": "admin"
   }'
 ```
+
+### Delete all pending (admin bulk clear)
+
+```bash
+curl -X DELETE "http://localhost:8081/api/risk-assessments?status=PENDING"
+```
+
+Returns **204 No Content**. Main app calls this after rejecting/refunding each linked transfer.
 
 ## Risk scoring rules
 
@@ -167,7 +183,7 @@ app.risk.threshold.block=70
 |--------|-------|---------|
 | `TransferRiskAssessment` | `transfer_risk_assessments` | Persisted risk score, decision, reasons, review metadata |
 
-Optional field `transactionRef` (UUID) is reserved for linking to a main-app `Transaction` id (not yet wired).
+Field **`transactionRef`** (UUID) links an assessment to the main-app `Transaction` id. The main app sends it on `POST` so admin approve/reject/clear can update the correct wallet transfer.
 
 ## Tests
 
@@ -179,7 +195,7 @@ Test classes:
 
 - `RiskScoringServiceTest` — scoring rules
 - `RiskAssessmentServiceTest` — service logic with mocked repository
-- `RiskAssessmentControllerWebMvcTest` — REST layer
+- `RiskAssessmentControllerWebMvcTest` — REST layer (incl. `DELETE ?status=PENDING`)
 
 ## Repository layout
 
@@ -190,3 +206,21 @@ D:\Projects\
 ├── ASWallet-Vol.2/          ← main app (:8080, DB as_wallet)
 └── ASWallet-Vol.2-svc/      ← this service (:8081, DB as_wallet_svc)
 ```
+
+## Recent changes (v2.0.1)
+
+### API
+
+- **`DELETE /api/risk-assessments?status=…`** — bulk delete by status (used by admin **Delete all reviews** in main app)
+- **`GET /api/risk-assessments/{id}`** — fetch single assessment (Feign `getAssessment`)
+- **`transactionRef`** wired from main app on create; stored on `TransferRiskAssessment` and returned in responses
+
+### Integration behaviour (with main app)
+
+- `REVIEW` assessments stay `PENDING` in MS until admin PATCH; wallet transfer stays `PENDING_RISK_REVIEW`
+- `BLOCK` assessments are `REJECTED` immediately; main app never creates the transfer
+- Bulk DELETE supports clearing orphaned/stale pending reviews after wallet-side refunds
+
+### Tests
+
+- `RiskAssessmentControllerWebMvcTest` extended for DELETE endpoint

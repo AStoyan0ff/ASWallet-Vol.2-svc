@@ -23,6 +23,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -175,5 +176,14 @@ class RiskAssessmentControllerWebMvcTest {
                 .andExpect(jsonPath("$.reviewedBy").value("admin"));
 
         verify(riskAssessmentService).review(eq(id), any());
+    }
+
+    @Test
+    void deleteAssessments_returnsNoContent() throws Exception {
+        mockMvc.perform(delete("/api/risk-assessments")
+                        .param("status", "PENDING"))
+                .andExpect(status().isNoContent());
+
+        verify(riskAssessmentService).deleteAllByStatus(AssessmentStatus.PENDING);
     }
 }

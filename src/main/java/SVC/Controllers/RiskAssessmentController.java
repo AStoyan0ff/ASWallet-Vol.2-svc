@@ -47,4 +47,10 @@ public class RiskAssessmentController {
 
         return riskAssessmentService.review(id, request);
     }
+
+    @DeleteMapping
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteAssessments(@RequestParam AssessmentStatus status) {
+        riskAssessmentService.deleteAllByStatus(status);
+    }
 }

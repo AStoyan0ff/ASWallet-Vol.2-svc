@@ -20,12 +20,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -48,6 +50,7 @@ class RiskAssessmentServiceTest {
 
     @Test
     void createAssessment_allowDecision_persistsApprovedStatus() {
+
         CreateRiskAssessmentRequest request = buildRequest();
         when(riskScoringService.evaluate(request)).thenReturn(
                 new RiskScoringService.RiskScoringResult(10, RiskLevel.LOW, RiskDecision.ALLOW, java.util.List.of("OK"))
@@ -70,10 +73,12 @@ class RiskAssessmentServiceTest {
 
     @Test
     void createAssessment_reviewDecision_persistsPendingStatus() {
+
         CreateRiskAssessmentRequest request = buildRequest();
         when(riskScoringService.evaluate(request)).thenReturn(
                 new RiskScoringService.RiskScoringResult(55, RiskLevel.MEDIUM, RiskDecision.REVIEW, java.util.List.of("Night transfer"))
         );
+
         when(repository.save(any(TransferRiskAssessment.class))).thenAnswer(invocation -> {
             TransferRiskAssessment saved = invocation.getArgument(0);
             saved.setId(UUID.randomUUID());
@@ -98,6 +103,7 @@ class RiskAssessmentServiceTest {
     @Test
     void review_pendingAssessment_approvesAndStoresReviewer() {
         UUID id = UUID.randomUUID();
+
         TransferRiskAssessment entity = TransferRiskAssessment.builder()
                 .id(id)
                 .senderUsername("Plamen")
@@ -127,6 +133,7 @@ class RiskAssessmentServiceTest {
     @Test
     void review_nonPendingAssessment_throws() {
         UUID id = UUID.randomUUID();
+
         TransferRiskAssessment entity = TransferRiskAssessment.builder()
                 .id(id)
                 .senderUsername("Plamen")
@@ -148,7 +155,35 @@ class RiskAssessmentServiceTest {
         assertThrows(InvalidReviewStateException.class, () -> riskAssessmentService.review(id, reviewRequest));
     }
 
+    @Test
+    void deleteAllByStatus_pending_deletesAllPendingAssessments() {
+
+        TransferRiskAssessment pending = TransferRiskAssessment.builder()
+                .id(UUID.randomUUID())
+                .status(AssessmentStatus.PENDING)
+                .build();
+
+        when(repository.findAllByStatusOrderByCreatedAtDesc(AssessmentStatus.PENDING))
+                .thenReturn(List.of(pending));
+
+        int deleted = riskAssessmentService.deleteAllByStatus(AssessmentStatus.PENDING);
+
+        assertThat(deleted).isEqualTo(1);
+        verify(repository).deleteAll(List.of(pending));
+    }
+
+    @Test
+    void deleteAllByStatus_nonPending_throws() {
+
+        assertThrows(
+                InvalidReviewStateException.class,
+                () -> riskAssessmentService.deleteAllByStatus(AssessmentStatus.APPROVED)
+        );
+        verify(repository, never()).deleteAll(any());
+    }
+
     private CreateRiskAssessmentRequest buildRequest() {
+
         CreateRiskAssessmentRequest request = new CreateRiskAssessmentRequest();
         request.setSenderUsername("Plamen");
         request.setReceiverUsername("Georgi");
