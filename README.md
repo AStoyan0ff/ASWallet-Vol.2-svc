@@ -193,9 +193,10 @@ mvn test
 
 Test classes:
 
-- `RiskScoringServiceTest` — scoring rules
-- `RiskAssessmentServiceTest` — service logic with mocked repository
-- `RiskAssessmentControllerWebMvcTest` — REST layer (incl. `DELETE ?status=PENDING`)
+- `RiskScoringServiceTest` — scoring rules (unit)
+- `RiskAssessmentServiceTest` — service logic with mocked repository (unit)
+- `RiskAssessmentServiceIntegrationTest` — `@SpringBootTest` + H2 (integration)
+- `RiskAssessmentControllerWebMvcTest` — REST layer (API)
 
 ## Repository layout
 
