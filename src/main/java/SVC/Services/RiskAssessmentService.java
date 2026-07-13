@@ -5,6 +5,7 @@ import SVC.DTOs.ReviewRiskAssessmentRequest;
 import SVC.DTOs.RiskAssessmentResponse;
 import SVC.Enums.AssessmentStatus;
 import SVC.Enums.RiskDecision;
+import SVC.Enums.RiskDecision;
 import SVC.Exceptions.InvalidReviewStateException;
 import SVC.Exceptions.RiskAssessmentNotFoundException;
 import SVC.Models.TransferRiskAssessment;
@@ -88,6 +89,16 @@ public class RiskAssessmentService {
         return assessments;
     }
 
+    public List<RiskAssessmentResponse> listByDecision(RiskDecision decision) {
+
+        List<RiskAssessmentResponse> assessments = repository.findAllByDecisionOrderByCreatedAtDesc(decision)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+        logger.debug("Listed {} risk assessment(s) with decision={}", assessments.size(), decision);
+        return assessments;
+    }
+
     @Transactional
     public RiskAssessmentResponse review(UUID id, ReviewRiskAssessmentRequest request) {
         TransferRiskAssessment assessment = findEntity(id);
@@ -139,9 +150,27 @@ public class RiskAssessmentService {
         return pending.size();
     }
 
+    @Transactional
+    public int deleteAllByDecision(RiskDecision decision) {
+
+        List<TransferRiskAssessment> assessments = repository.findAllByDecisionOrderByCreatedAtDesc(decision);
+
+        if (assessments.isEmpty()) {
+
+            logger.info("No risk assessments to delete for decision={}", decision);
+            return 0;
+        }
+
+        repository.deleteAll(assessments);
+        logger.info("Deleted {} risk assessment(s) with decision={}", assessments.size(), decision);
+
+        return assessments.size();
+    }
+
     private AssessmentStatus resolveInitialStatus(RiskDecision decision) {
 
         return switch (decision) {
+            
             case ALLOW -> AssessmentStatus.APPROVED;
             case REVIEW -> AssessmentStatus.PENDING;
             case BLOCK -> AssessmentStatus.REJECTED;

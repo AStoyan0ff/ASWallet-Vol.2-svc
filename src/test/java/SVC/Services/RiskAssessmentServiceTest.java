@@ -182,6 +182,53 @@ class RiskAssessmentServiceTest {
         verify(repository, never()).deleteAll(any());
     }
 
+    @Test
+    void listByDecision_review_returnsAllManualReviews() {
+        TransferRiskAssessment pending = TransferRiskAssessment.builder()
+                .id(UUID.randomUUID())
+                .decision(RiskDecision.REVIEW)
+                .status(AssessmentStatus.PENDING)
+                .reasons("[\"Night transfer\"]")
+                .build();
+        TransferRiskAssessment approved = TransferRiskAssessment.builder()
+                .id(UUID.randomUUID())
+                .decision(RiskDecision.REVIEW)
+                .status(AssessmentStatus.APPROVED)
+                .reasons("[\"Night transfer\"]")
+                .build();
+
+        when(repository.findAllByDecisionOrderByCreatedAtDesc(RiskDecision.REVIEW))
+                .thenReturn(List.of(pending, approved));
+
+        List<RiskAssessmentResponse> responses = riskAssessmentService.listByDecision(RiskDecision.REVIEW);
+
+        assertThat(responses).hasSize(2);
+        assertThat(responses.get(0).getDecision()).isEqualTo(RiskDecision.REVIEW);
+        assertThat(responses.get(1).getStatus()).isEqualTo(AssessmentStatus.APPROVED);
+    }
+
+    @Test
+    void deleteAllByDecision_review_deletesAllManualReviews() {
+        TransferRiskAssessment pending = TransferRiskAssessment.builder()
+                .id(UUID.randomUUID())
+                .decision(RiskDecision.REVIEW)
+                .status(AssessmentStatus.PENDING)
+                .build();
+        TransferRiskAssessment rejected = TransferRiskAssessment.builder()
+                .id(UUID.randomUUID())
+                .decision(RiskDecision.REVIEW)
+                .status(AssessmentStatus.REJECTED)
+                .build();
+
+        when(repository.findAllByDecisionOrderByCreatedAtDesc(RiskDecision.REVIEW))
+                .thenReturn(List.of(pending, rejected));
+
+        int deleted = riskAssessmentService.deleteAllByDecision(RiskDecision.REVIEW);
+
+        assertThat(deleted).isEqualTo(2);
+        verify(repository).deleteAll(List.of(pending, rejected));
+    }
+
     private CreateRiskAssessmentRequest buildRequest() {
 
         CreateRiskAssessmentRequest request = new CreateRiskAssessmentRequest();

@@ -4,6 +4,7 @@ import SVC.DTOs.CreateRiskAssessmentRequest;
 import SVC.DTOs.ReviewRiskAssessmentRequest;
 import SVC.DTOs.RiskAssessmentResponse;
 import SVC.Enums.AssessmentStatus;
+import SVC.Enums.RiskDecision;
 import SVC.Services.RiskAssessmentService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -47,10 +48,26 @@ public class RiskAssessmentController {
 
     @GetMapping
     public List<RiskAssessmentResponse> listAssessments(
-            @RequestParam(defaultValue = "PENDING") AssessmentStatus status) {
+            @RequestParam(required = false) AssessmentStatus status,
+            @RequestParam(required = false) RiskDecision decision) {
 
-        logger.debug("GET /api/risk-assessments?status={}", status);
-        return riskAssessmentService.listByStatus(status);
+        if (decision != null) {
+            logger.debug("GET /api/risk-assessments?decision={}", decision);
+            return riskAssessmentService.listByDecision(decision);
+        }
+
+        AssessmentStatus resolvedStatus = status != null
+            ? status
+            : AssessmentStatus.PENDING;
+
+        logger.debug("GET /api/risk-assessments?status={}", resolvedStatus);
+        return riskAssessmentService.listByStatus(resolvedStatus);
+    }
+
+    @GetMapping("/manual-reviews")
+    public List<RiskAssessmentResponse> listManualReviews() {
+        logger.debug("GET /api/risk-assessments/manual-reviews");
+        return riskAssessmentService.listByDecision(RiskDecision.REVIEW);
     }
 
     @PatchMapping("/{id}/review")
@@ -69,8 +86,30 @@ public class RiskAssessmentController {
 
     @DeleteMapping
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteAssessments(@RequestParam AssessmentStatus status) {
+    public void deleteAssessments(
+            @RequestParam(required = false) AssessmentStatus status,
+            @RequestParam(required = false) RiskDecision decision) {
+
+        if (decision != null) {
+
+            logger.info("DELETE /api/risk-assessments?decision={}", decision);
+            riskAssessmentService.deleteAllByDecision(decision);
+            return;
+        }
+
+        if (status == null) {
+            throw new IllegalArgumentException("Either status or decision must be provided.");
+        }
+
         logger.info("DELETE /api/risk-assessments?status={}", status);
         riskAssessmentService.deleteAllByStatus(status);
+    }
+
+    @DeleteMapping("/manual-reviews")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteManualReviews() {
+
+        logger.info("DELETE /api/risk-assessments/manual-reviews");
+        riskAssessmentService.deleteAllByDecision(RiskDecision.REVIEW);
     }
 }

@@ -58,6 +58,29 @@ class RiskAssessmentServiceIntegrationTest {
     }
 
     @Test
+    void listByDecision_afterReview_stillReturnsAssessment() {
+        UUID transactionRef = UUID.randomUUID();
+        CreateRiskAssessmentRequest request = buildReviewRequest(transactionRef);
+
+        RiskAssessmentResponse created = riskAssessmentService.createAssessment(request);
+
+        ReviewRiskAssessmentRequest reviewRequest = new ReviewRiskAssessmentRequest();
+        reviewRequest.setStatus(AssessmentStatus.APPROVED);
+        reviewRequest.setReviewedBy("admin");
+
+        riskAssessmentService.review(created.getId(), reviewRequest);
+
+        assertThat(riskAssessmentService.listByDecision(RiskDecision.REVIEW))
+                .hasSize(1)
+                .first()
+                .satisfies(item -> {
+                    assertThat(item.getId()).isEqualTo(created.getId());
+                    assertThat(item.getStatus()).isEqualTo(AssessmentStatus.APPROVED);
+                    assertThat(item.getReviewedBy()).isEqualTo("admin");
+                });
+    }
+
+    @Test
     void deleteAllPending_removesRowsFromDatabase() {
         riskAssessmentService.createAssessment(buildReviewRequest(UUID.randomUUID()));
 

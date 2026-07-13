@@ -63,23 +63,23 @@ class RiskAssessmentControllerWebMvcTest {
 
         mockMvc
             .perform(post("/api/risk-assessments")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content
-                    ("""
-                            {
-                                "senderUsername": "Plamen",
-                                "receiverUsername": "Georgi",
-                                "amount": 25.00,
-                                "senderBalance": 500.00,
-                                "withdrawnToday": 0.00,
-                                "dailyLimit": 500.00,
-                                "transfersTodayCount": 0,
-                                "receiverHasBankCard": true,
-                                "newReceiver": false,
-                                "accountStatus": "ACTIVE",
-                                "hourOfDay": 14
-                            }
-                    """))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content
+                ("""
+                    {
+                        "senderUsername": "Plamen",
+                        "receiverUsername": "Georgi",
+                        "amount": 25.00,
+                        "senderBalance": 500.00,
+                        "withdrawnToday": 0.00,
+                        "dailyLimit": 500.00,
+                        "transfersTodayCount": 0,
+                        "receiverHasBankCard": true,
+                        "newReceiver": false,
+                        "accountStatus": "ACTIVE",
+                        "hourOfDay": 14
+                    }
+                """))
 
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.id").value(id.toString()))
@@ -214,6 +214,79 @@ class RiskAssessmentControllerWebMvcTest {
             .andExpect(jsonPath("$.error").value("Only pending assessments can be reviewed."));
 
         verify(riskAssessmentService).review(eq(id), any());
+    }
+
+    @Test
+    void listManualReviews_returnsReviewHistory() throws Exception {
+        when(riskAssessmentService.listByDecision(RiskDecision.REVIEW)).thenReturn(List.of(
+
+            RiskAssessmentResponse.builder()
+                .id(UUID.randomUUID())
+                .senderUsername("Plamen")
+                .receiverUsername("Georgi")
+                .amount(new BigDecimal("200.00"))
+                .riskScore(55)
+                .riskLevel(RiskLevel.MEDIUM)
+                .decision(RiskDecision.REVIEW)
+                .status(AssessmentStatus.APPROVED)
+                .reasons(List.of("Night transfer"))
+                .build()
+        ));
+
+        mockMvc
+            .perform(get("/api/risk-assessments/manual-reviews"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].decision").value("REVIEW"))
+            .andExpect(jsonPath("$[0].status").value("APPROVED"));
+
+        verify(riskAssessmentService).listByDecision(RiskDecision.REVIEW);
+    }
+
+    @Test
+    void deleteManualReviews_returnsNoContent() throws Exception {
+
+        mockMvc
+            .perform(delete("/api/risk-assessments/manual-reviews"))
+            .andExpect(status().isNoContent());
+
+        verify(riskAssessmentService).deleteAllByDecision(RiskDecision.REVIEW);
+    }
+
+    @Test
+    void listAssessments_byDecision_returnsReviewItems() throws Exception {
+        when(riskAssessmentService.listByDecision(RiskDecision.REVIEW)).thenReturn(List.of(
+
+            RiskAssessmentResponse.builder()
+                .id(UUID.randomUUID())
+                .senderUsername("Plamen")
+                .receiverUsername("Georgi")
+                .amount(new BigDecimal("200.00"))
+                .riskScore(55)
+                .riskLevel(RiskLevel.MEDIUM)
+                .decision(RiskDecision.REVIEW)
+                .status(AssessmentStatus.APPROVED)
+                .reasons(List.of("Night transfer"))
+                .build()
+        ));
+
+        mockMvc
+            .perform(get("/api/risk-assessments").param("decision", "REVIEW"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].decision").value("REVIEW"))
+            .andExpect(jsonPath("$[0].status").value("APPROVED"));
+
+        verify(riskAssessmentService).listByDecision(RiskDecision.REVIEW);
+    }
+
+    @Test
+    void deleteAssessments_byDecision_returnsNoContent() throws Exception {
+
+        mockMvc
+            .perform(delete("/api/risk-assessments")
+            .param("decision", "REVIEW"))
+            .andExpect(status().isNoContent());
+
+        verify(riskAssessmentService).deleteAllByDecision(RiskDecision.REVIEW);
     }
 
     @Test
