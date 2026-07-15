@@ -1,5 +1,5 @@
 <h1 align="center">
-    ASWallet-Vol.2-svc 
+  💳 ASWallet-Vol.2-svc 💳
 </h1>
 
 <p align="center">
@@ -14,28 +14,48 @@
   <img src="https://img.shields.io/badge/Security-None%20(optional)-yellow">
 </p>
 
-Standalone **Transfer Risk Assessment** microservice for the [ASWallet-Vol.2](https://github.com/AStoyan0ff/ASWallet-Vol.2) main application.
+Standalone **Transfer Risk Assessment** microservice for [ASWallet-Vol.2](https://github.com/AStoyan0ff/ASWallet-Vol.2).
 
-The main app calls this service on **transfer confirmation** via **Spring Cloud OpenFeign**.  
-Admins review flagged transfers from `/admin/risk-reviews` in the main app.
+Consumed by the main app via **Spring Cloud OpenFeign** on transfer confirm and admin risk review.
 
 ---
 
 ## Table of Contents
 
-1. [Overview](#overview)
-2. [Tech Stack](#tech-stack)
-3. [Domain Model](#domain-model)
-4. [Risk Scoring](#risk-scoring)
-5. [REST API](#rest-api)
-6. [Integration with Main App](#integration-with-main-app)
-7. [Security](#security)
-8. [Configuration](#configuration)
-9. [Getting Started](#getting-started)
-10. [Testing](#testing)
-11. [Project Structure](#project-structure)
-12. [Spring Advanced Checklist](#spring-advanced-checklist)
-13. [Planned Work](#planned-work)
+1. [Project Inventory](#project-inventory)
+2. [Overview](#overview)
+3. [Tech Stack](#tech-stack)
+4. [Domain Model](#domain-model)
+5. [Risk Scoring](#risk-scoring)
+6. [REST API](#rest-api)
+7. [Integration with Main App](#integration-with-main-app)
+8. [Security](#security)
+9. [Static Assets](#static-assets)
+10. [Configuration](#configuration)
+11. [Getting Started](#getting-started)
+12. [Testing](#testing)
+13. [Source Inventory](#source-inventory)
+14. [Spring Advanced Checklist](#spring-advanced-checklist)
+15. [Author](#author)
+
+---
+
+## Project Inventory
+
+| Area | Count |
+|------|-------|
+| Java source files (main) | **18** |
+| REST controllers | **1** |
+| Services | **2** |
+| JPA entities | **1** |
+| Repositories | **1** |
+| DTOs | **3** |
+| Enums | **3** |
+| Custom exceptions | **2** |
+| Test classes | **4** |
+| Test methods | **~28** |
+| Static files | **3** (`index.html`, `home.css`, `hello.png`) |
+| Line coverage | **70%+** ✅ |
 
 ---
 
@@ -43,39 +63,32 @@ Admins review flagged transfers from `/admin/risk-reviews` in the main app.
 
 | Property | Value |
 |----------|-------|
+| Artifact | `ASWallet-Vol.2-svc` v1.0.0 |
 | Port | `8081` |
 | Database | MySQL `as_wallet_svc` (H2 in tests) |
-| Main consumer | ASWallet-Vol.2 via OpenFeign (`RiskAssessmentClient`) |
-| Purpose | Score transfer risk; persist assessments; support admin manual review |
+| Consumer | ASWallet-Vol.2 main app (`RiskAssessmentClient`) |
 
-**What this service does:**
+**Responsibilities:**
 
-- Receives transfer context from main app (amount, balances, limits, time of day, etc.)
-- Calculates risk score and returns `ALLOW`, `REVIEW`, or `BLOCK`
-- Stores `TransferRiskAssessment` with `transactionRef` linking to main-app transaction UUID
-- Exposes admin review API (approve/reject) consumed by main app
-- Supports listing and bulk-deleting manual reviews (`decision=REVIEW`)
-
-**What this service does not do:**
-
-- No user-facing UI
-- No Spring Security (optional per SoftUni assignment — see [Security](#security))
-- No direct wallet/balance changes (main app owns wallet state)
+- Score transfer risk from context sent by main app
+- Persist `TransferRiskAssessment` with `transactionRef` (wallet transaction UUID)
+- Expose admin review API (approve/reject status updates)
+- List and bulk-delete manual reviews (`decision=REVIEW`)
 
 ---
 
 ## Tech Stack
 
-| Layer       | Technology |
-|-------------|------------|
-| Language    | Java 21 |
-| Framework   | Spring Boot 4.0.6 |
-| API         | Spring Web (REST) |
-| Persistence | Spring Data JPA, Hibernate |
-| Database    | MySQL `as_wallet_svc` (dev), H2 (tests) |
-| Validation  | Jakarta Bean Validation |
-| Build       | Maven |
-| Utilities   | Lombok |
+| Layer | Technology |
+|-------|------------|
+| Language | Java 21 |
+| Framework | Spring Boot 4.0.6 |
+| API | Spring Web (REST) |
+| Persistence | Spring Data JPA |
+| Database | MySQL / H2 (tests) |
+| Validation | Jakarta Bean Validation |
+| Build | Maven |
+| Utilities | Lombok |
 
 ---
 
@@ -83,13 +96,11 @@ Admins review flagged transfers from `/admin/risk-reviews` in the main app.
 
 ### Entity
 
-| Entity | Table | Purpose |
-|--------|-------|---------|
-| `TransferRiskAssessment` | `transfer_risk_assessments` | Risk score, decision, reasons, review metadata |
+| Entity | Table | Fields (key) |
+|--------|-------|--------------|
+| `TransferRiskAssessment` | `transfer_risk_assessments` | UUID id, `transactionRef`, usernames, amount, `riskScore`, `riskLevel`, `decision`, `status`, `reasons` (JSON), `reviewedBy`, timestamps |
 
-UUID primary key. Field **`transactionRef`** links to main-app `Transaction.id`.
-
-### Enums
+### Enums (3)
 
 | Enum | Values |
 |------|--------|
@@ -97,7 +108,7 @@ UUID primary key. Field **`transactionRef`** links to main-app `Transaction.id`.
 | `RiskLevel` | `LOW`, `MEDIUM`, `HIGH` |
 | `AssessmentStatus` | `PENDING`, `APPROVED`, `REJECTED` |
 
-### Decision → status mapping (on create)
+### Decision → status on create
 
 | Decision | Initial status |
 |----------|----------------|
@@ -108,6 +119,8 @@ UUID primary key. Field **`transactionRef`** links to main-app `Transaction.id`.
 ---
 
 ## Risk Scoring
+
+Implemented in `RiskScoringService`.
 
 ### Rules
 
@@ -121,15 +134,15 @@ UUID primary key. Field **`transactionRef`** links to main-app `Transaction.id`.
 | Receiver has no bank card | +25 |
 | Non-ACTIVE account | immediate **BLOCK** (score 100) |
 
-### Thresholds (configurable)
+### Thresholds
 
 ```properties
 app.risk.threshold.review=40
 app.risk.threshold.block=70
 ```
 
-| Score | Decision | Initial status |
-|-------|----------|----------------|
+| Score | Decision | Status |
+|-------|----------|--------|
 | 0–39 | `ALLOW` | `APPROVED` |
 | 40–69 | `REVIEW` | `PENDING` |
 | 70+ | `BLOCK` | `REJECTED` |
@@ -138,25 +151,23 @@ app.risk.threshold.block=70
 
 ## REST API
 
-Base path: `/api/risk-assessments`
+Base: `/api/risk-assessments`
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/risk-assessments` | Evaluate transfer risk and persist result |
-| `GET` | `/api/risk-assessments/{id}` | Get assessment by id |
+| `POST` | `/api/risk-assessments` | Create assessment |
+| `GET` | `/api/risk-assessments/{id}` | Get by id |
 | `GET` | `/api/risk-assessments` | List by `status` (default `PENDING`) or `decision` |
-| `GET` | `/api/risk-assessments/manual-reviews` | List all `decision=REVIEW` (any status) |
-| `PATCH` | `/api/risk-assessments/{id}/review` | Admin approve/reject a pending review |
-| `DELETE` | `/api/risk-assessments` | Bulk delete by `status` or `decision` (204) |
-| `DELETE` | `/api/risk-assessments/manual-reviews` | Delete all `decision=REVIEW` (204) |
+| `GET` | `/api/risk-assessments/manual-reviews` | All `decision=REVIEW` (history) |
+| `PATCH` | `/api/risk-assessments/{id}/review` | Approve/reject pending review |
+| `DELETE` | `/api/risk-assessments` | Bulk delete by `status` or `decision` |
+| `DELETE` | `/api/risk-assessments/manual-reviews` | Delete all manual reviews |
 
-> No homepage at `/`. Use API paths above.
-
-### Create assessment
+### Create
 
 ```bash
-curl -X POST http://localhost:8081/api/risk-assessments 
-  -H "Content-Type: application/json" 
+curl -X POST http://localhost:8081/api/risk-assessments \
+  -H "Content-Type: application/json" \
   -d '{
     "transactionRef": "550e8400-e29b-41d4-a716-446655440000",
     "senderUsername": "Plamen",
@@ -173,68 +184,31 @@ curl -X POST http://localhost:8081/api/risk-assessments
   }'
 ```
 
-Example response:
-
-```json
-{
-  "id": "…",
-  "transactionRef": "550e8400-e29b-41d4-a716-446655440000",
-  "senderUsername": "Plamen",
-  "receiverUsername": "Georgi",
-  "amount": 200.00,
-  "riskScore": 55,
-  "riskLevel": "MEDIUM",
-  "decision": "REVIEW",
-  "status": "PENDING",
-  "reasons": ["Transfer was initiated during night hours."],
-  "createdAt": "2026-07-07T23:00:00"
-}
-```
-
-### Review (admin)
-
-Only assessments with `decision=REVIEW` and `status=PENDING` can be reviewed.
+### Review
 
 ```bash
-curl -X PATCH http://localhost:8081/api/risk-assessments/{id}/review 
-  -H "Content-Type: application/json" 
-  -d '{
-    "status": "APPROVED",
-    "reviewedBy": "admin"
-  }'
+curl -X PATCH http://localhost:8081/api/risk-assessments/{id}/review \
+  -H "Content-Type: application/json" \
+  -d '{"status": "APPROVED", "reviewedBy": "admin"}'
 ```
 
-### List manual reviews (history)
-
-```bash
-curl http://localhost:8081/api/risk-assessments/manual-reviews
-```
-
-Returns all assessments with `decision=REVIEW` regardless of `status` (pending, approved, rejected). Main app uses this for admin history view.
-
-### Delete all manual reviews
-
-```bash
-curl -X DELETE http://localhost:8081/api/risk-assessments/manual-reviews
-```
-
-Returns **204 No Content**. Main app calls this after rejecting/refunding pending linked transfers.
+Only `decision=REVIEW` + `status=PENDING` can be reviewed.
 
 ---
 
 ## Integration with Main App
 
-### Feign triggers
+### Feign mapping
 
-| Trigger | Feign call | Effect |
-|---------|------------|--------|
-| User confirms transfer | `POST /api/risk-assessments` | Score transfer, persist assessment |
-| Admin opens risk reviews | `GET /api/risk-assessments/manual-reviews` | List all manual reviews (history) |
-| Admin loads single review | `GET /api/risk-assessments/{id}` | Fetch before approve/reject |
-| Admin approves / rejects | `PATCH /api/risk-assessments/{id}/review` | Update assessment status |
-| Admin delete all reviews | `DELETE /api/risk-assessments/manual-reviews` | Clear manual review records |
+| Main app action | Feign call |
+|-----------------|------------|
+| Transfer confirm | `POST /api/risk-assessments` |
+| Admin risk reviews page | `GET /api/risk-assessments/manual-reviews` |
+| Admin approve/reject | `PATCH /api/risk-assessments/{id}/review` |
+| Admin delete all | `DELETE /api/risk-assessments/manual-reviews` |
+| Load single assessment | `GET /api/risk-assessments/{id}` |
 
-### Main app configuration
+### Main app properties
 
 ```properties
 app.risk-service.enabled=true
@@ -243,49 +217,31 @@ app.risk-service.fail-open=true
 spring.cloud.openfeign.httpclient.hc5.enabled=true
 ```
 
-### Decision flow
+### Wallet behaviour (main app)
 
-| Decision | MS status | Main app behaviour |
-|----------|-----------|-------------------|
-| `ALLOW` | `APPROVED` | Transfer `PENDING` → scheduler completes (~5 s) |
-| `REVIEW` | `PENDING` | Transfer `PENDING_RISK_REVIEW` → held until admin action |
-| `BLOCK` | `REJECTED` | Transfer rejected before creation |
-
-Admin **Approve** → main app completes wallet transfer → PATCH → `APPROVED`.  
-Admin **Reject** / **Delete all** → main app refunds sender → PATCH or bulk DELETE.
-
-When microservice is down and `fail-open=true`, main app allows transfer without check (demo mode).
+| MS decision | Wallet `Transaction.status` |
+|-------------|------------------------------|
+| `ALLOW` | `PENDING` → scheduler completes |
+| `REVIEW` | `PENDING_RISK_REVIEW` → admin action |
+| `BLOCK` | Transfer not created |
 
 ---
 
-## Security
+## Static Assets
 
-### Current state
+Minimal landing page at **`GET /`** (not the primary integration surface):
 
-**No authentication or authorization** on REST endpoints. Any client reaching `:8081` can call the API.
+| File | Purpose |
+|------|---------|
+| `static/index.html` | Simple splash: “ASWallet Risk Service Port: 8081” |
+| `static/css/home.css` | Full-viewport image layout |
+| `static/images/hello.png` | Background image |
 
-This is **acceptable for the SoftUni Spring Advanced assignment**:
-
-> *Security and Roles — required only for the Main application. The REST microservice(s) may implement security, but it is optional.*
-
-Main app protects `/admin/risk-reviews` with `ROLE_ADMIN`, but direct API access to `:8081` bypasses that guard.
-
-### Planned (future initiative)
-
-| Item | Approach |
-|------|----------|
-| Service-to-service auth | Shared API key: `app.risk-service.api-key=${RISK_SERVICE_API_KEY}` |
-| Main app | Feign request interceptor sends `X-API-Key` header |
-| Microservice | Servlet filter or Spring Security stateless config validates key |
-| Fail-open policy | Configurable modes when svc unreachable (`allow` / `block` / `review`) |
-
-See main app README **Planned Work** for details.
+API integration uses `/api/risk-assessments/*`.
 
 ---
 
 ## Configuration
-
-`src/main/resources/application.properties`:
 
 ```properties
 spring.application.name=ASWallet-Vol.2-svc
@@ -301,39 +257,23 @@ app.risk.threshold.review=40
 app.risk.threshold.block=70
 ```
 
-Environment variable:
-
-```powershell
-$env:DB_PASSWORD = "your_mysql_password"
-```
-
 ---
 
 ## Getting Started
-
-### 1. Database
 
 ```sql
 CREATE DATABASE IF NOT EXISTS as_wallet_svc;
 ```
 
-### 2. Run
-
-Start before or together with main app on port 8080:
-
 ```powershell
+$env:DB_PASSWORD = "your_mysql_password"
 mvn spring-boot:run
 ```
 
-Service: **http://localhost:8081** -- Greetings for you!
+- API: **http://localhost:8081/api/risk-assessments/manual-reviews**
+- Splash: **http://localhost:8081/**
 
-### 3. Verify
-
-```powershell
-curl http://localhost:8081/api/risk-assessments/manual-reviews
-```
-
-Expected: `[]` or list of assessments.
+Start before or with main app on `:8080`.
 
 ---
 
@@ -345,53 +285,56 @@ mvn test
 
 | Test class | Type | Focus |
 |------------|------|-------|
-| `RiskScoringServiceTest` | Unit | Scoring rules and thresholds |
-| `RiskAssessmentServiceTest` | Unit | Service logic (mocked repository) |
-| `RiskAssessmentServiceIntegrationTest` | Integration | Full stack with H2 |
-| `RiskAssessmentControllerWebMvcTest` | API | REST endpoints incl. manual-reviews, decision filter, DELETE |
+| `RiskScoringServiceTest` | Unit | Scoring rules (5 tests) |
+| `RiskAssessmentServiceTest` | Unit | Service logic (9 tests) |
+| `RiskAssessmentServiceIntegrationTest` | Integration | H2 full stack (3 tests) |
+| `RiskAssessmentControllerWebMvcTest` | API | All REST endpoints (11 tests) |
 
-Target: **70%+ line coverage** ✅
+**~28** test methods total. Target 70%+ line coverage ✅.
 
 ---
 
-## Project Structure
+## Source Inventory
 
 ```
-ASWallet-Vol.2-svc/
-├── pom.xml
-├── README.md
-└── src/
-    ├── main/java/SVC/
-    │   ├── ASWalletSvcApplication.java
-    │   ├── Controllers/
-    │   │   └── RiskAssessmentController.java
-    │   ├── Services/
-    │   │   ├── RiskAssessmentService.java
-    │   │   └── RiskScoringService.java
-    │   ├── Models/
-    │   │   └── TransferRiskAssessment.java
-    │   ├── Repositories/
-    │   │   └── TransferRiskAssessmentRepository.java
-    │   ├── DTOs/
-    │   ├── Enums/
-    │   ├── Exceptions/
-    │   └── GlobalExceptionHandler/
-    ├── main/resources/
-    │   └── application.properties
-    └── test/java/SVC/
-        ├── Controllers/RiskAssessmentControllerWebMvcTest.java
-        └── Services/
-            ├── RiskScoringServiceTest.java
-            ├── RiskAssessmentServiceTest.java
-            └── RiskAssessmentServiceIntegrationTest.java
-```
+src/main/java/SVC/
+├── ASWalletSvcApplication.java
+├── Controllers/
+│   └── RiskAssessmentController.java
+├── Services/
+│   ├── RiskAssessmentService.java      # CRUD, review, list/delete by status/decision
+│   └── RiskScoringService.java         # Rule engine + thresholds
+├── Models/
+│   └── TransferRiskAssessment.java
+├── Repositories/
+│   └── TransferRiskAssessmentRepository.java
+├── DTOs/
+│   ├── CreateRiskAssessmentRequest.java
+│   ├── ReviewRiskAssessmentRequest.java
+│   └── RiskAssessmentResponse.java
+├── Enums/
+│   ├── AssessmentStatus.java
+│   ├── RiskDecision.java
+│   └── RiskLevel.java
+├── Exceptions/
+│   ├── InvalidReviewStateException.java
+│   └── RiskAssessmentNotFoundException.java
+└── GlobalExceptionHandler/
+    └── GlobalExceptionHandler.java
 
-### Repository layout (with main app)
+src/main/resources/
+├── application.properties
+└── static/
+    ├── index.html
+    ├── css/home.css
+    └── images/hello.png
 
-```
-D:\Projects\
-├── ASWallet-Vol.2/          ← main app (:8080, DB as_wallet)
-└── ASWallet-Vol.2-svc/      ← this service (:8081, DB as_wallet_svc)
+src/test/java/SVC/
+├── Controllers/RiskAssessmentControllerWebMvcTest.java
+└── Services/
+    ├── RiskScoringServiceTest.java
+    ├── RiskAssessmentServiceTest.java
+    └── RiskAssessmentServiceIntegrationTest.java
 ```
 
 ---
@@ -401,15 +344,14 @@ D:\Projects\
 | Requirement | Status |
 |-------------|--------|
 | Separate Spring Boot app | ✅ |
-| Separate database | ✅ `as_wallet_svc` |
-| ≥ 1 domain entity | ✅ `TransferRiskAssessment` |
-| ≥ 2 valid functionalities from UI | ✅ assess + admin review |
-| ≥ 1 GET + ≥ 2 POST/PATCH/DELETE from main | ✅ |
-| Feign consumed by main app | ✅ |
+| Separate database | ✅ |
+| ≥ 1 domain entity | ✅ |
+| ≥ 2 functionalities from UI | ✅ assess + admin review |
+| ≥ 1 GET + ≥ 2 POST/PATCH/DELETE | ✅ |
+| Feign from main app | ✅ |
 | Validation + error handling | ✅ |
-| Logging on functionalities | ✅ |
+| Logging | ✅ |
 | 70% test coverage | ✅ |
-| Spring Security | ⏭️ optional (not implemented) |
 
 ---
 
@@ -417,10 +359,10 @@ D:\Projects\
 
 | Item | Notes |
 |------|-------|
-| **API key authentication** | `X-API-Key` header; env-based shared secret; Feign interceptor in main app |
-| **Bind to localhost only** | Alternative quick hardening for dev (`server.address=127.0.0.1`) |
-| **Health/actuator endpoint** | Optional readiness probe for main-app fail-open logic |
-| **Outbox for failed assessments** | Support `fail-open=review` when svc was down at transfer time |
+| **API key auth** | `X-API-Key` between main app and svc |
+| **localhost bind** | `server.address=127.0.0.1` for dev hardening |
+| **Health endpoint** | Readiness for fail-open logic in main app |
+| **Assessment outbox** | Retry when svc was down at transfer time |
 
 ---
 
