@@ -355,17 +355,6 @@ src/test/java/SVC/
 
 ---
 
-## Planned Work
-
-| Item | Notes |
-|------|-------|
-| **API key auth** | `X-API-Key` between main app and svc |
-| **localhost bind** | `server.address=127.0.0.1` for dev hardening |
-| **Health endpoint** | Readiness for fail-open logic in main app |
-| **Assessment outbox** | Retry when svc was down at transfer time |
-
----
-
 ## Author
 
 Part of **ASWallet-Vol.2** by **AStoyanoff®**
