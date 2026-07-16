@@ -20,7 +20,6 @@ import java.util.UUID;
 public class RiskAssessmentController {
 
     private static final Logger logger = LoggerFactory.getLogger(RiskAssessmentController.class);
-
     private final RiskAssessmentService riskAssessmentService;
 
     public RiskAssessmentController(RiskAssessmentService riskAssessmentService) {
@@ -79,7 +78,7 @@ public class RiskAssessmentController {
                 "PATCH /api/risk-assessments/{}/review: status={}, reviewedBy={}",
                 id,
                 request.getStatus(),
-                request.getReviewedBy()
+                request.getReviewedBy().trim()
         );
         return riskAssessmentService.review(id, request);
     }

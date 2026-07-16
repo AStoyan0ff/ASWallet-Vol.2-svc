@@ -5,7 +5,6 @@ import SVC.DTOs.ReviewRiskAssessmentRequest;
 import SVC.DTOs.RiskAssessmentResponse;
 import SVC.Enums.AssessmentStatus;
 import SVC.Enums.RiskDecision;
-import SVC.Enums.RiskDecision;
 import SVC.Exceptions.InvalidReviewStateException;
 import SVC.Exceptions.RiskAssessmentNotFoundException;
 import SVC.Models.TransferRiskAssessment;

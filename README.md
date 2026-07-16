@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/Spring%20Boot-4.0.6-brightgreen?logo=springboot">
   <img src="https://img.shields.io/badge/MySQL-Database-blue?logo=mysql">
   <img src="https://img.shields.io/badge/Port-8081-blue">
-  <img src="https://img.shields.io/badge/Security-None%20(optional)-yellow">
+  <img src="https://img.shields.io/badge/Security-API%20Key-success">
 </p>
 
 Standalone **Transfer Risk Assessment** microservice for [ASWallet-Vol.2](https://github.com/AStoyan0ff/ASWallet-Vol.2).
@@ -42,20 +42,20 @@ Consumed by the main app via **Spring Cloud OpenFeign** on transfer confirm and 
 
 ## Project Inventory
 
-| Area | Count |
-|------|-------|
-| Java source files (main) | **18** |
-| REST controllers | **1** |
-| Services | **2** |
-| JPA entities | **1** |
-| Repositories | **1** |
-| DTOs | **3** |
-| Enums | **3** |
-| Custom exceptions | **2** |
-| Test classes | **4** |
-| Test methods | **~28** |
+| Area | Count                                         |
+|------|-----------------------------------------------|
+| Java source files (main) | **19**                                        |
+| REST controllers | **1**                                         |
+| Services | **2**                                         |
+| JPA entities | **1**                                         |
+| Repositories | **1**                                         |
+| DTOs | **3**                                         |
+| Enums | **3**                                         |
+| Custom exceptions | **2**                                         |
+| Test classes | **4**                                         |
+| Test methods | **+-30**                                      |
 | Static files | **3** (`index.html`, `home.css`, `hello.png`) |
-| Line coverage | **70%+** ✅ |
+| Line coverage | **70%+** ✅                                    |
 
 ---
 
@@ -166,8 +166,9 @@ Base: `/api/risk-assessments`
 ### Create
 
 ```bash
-curl -X POST http://localhost:8081/api/risk-assessments \
-  -H "Content-Type: application/json" \
+curl -X POST http://localhost:8081/api/risk-assessments 
+  -H "Content-Type: application/json" 
+  -H "X-API-Key: aswallet-dev-api-key" 
   -d '{
     "transactionRef": "550e8400-e29b-41d4-a716-446655440000",
     "senderUsername": "Plamen",
@@ -187,8 +188,9 @@ curl -X POST http://localhost:8081/api/risk-assessments \
 ### Review
 
 ```bash
-curl -X PATCH http://localhost:8081/api/risk-assessments/{id}/review \
-  -H "Content-Type: application/json" \
+curl -X PATCH http://localhost:8081/api/risk-assessments/{id}/review 
+  -H "Content-Type: application/json" 
+  -H "X-API-Key: aswallet-dev-api-key" 
   -d '{"status": "APPROVED", "reviewedBy": "admin"}'
 ```
 
@@ -214,6 +216,7 @@ Only `decision=REVIEW` + `status=PENDING` can be reviewed.
 app.risk-service.enabled=true
 app.risk-service.base-url=http://localhost:8081
 app.risk-service.fail-open=true
+app.risk-service.api-key=${RISK_SERVICE_API_KEY:aswallet-dev-api-key}
 spring.cloud.openfeign.httpclient.hc5.enabled=true
 ```
 
@@ -224,6 +227,44 @@ spring.cloud.openfeign.httpclient.hc5.enabled=true
 | `ALLOW` | `PENDING` → scheduler completes |
 | `REVIEW` | `PENDING_RISK_REVIEW` → admin action |
 | `BLOCK` | Transfer not created |
+
+---
+
+## Security
+
+### API key (service-to-service)
+
+All `/api/**` endpoints require:
+
+```http
+X-API-Key: <shared-secret>
+```
+
+| Side | Property | Default (local) |
+|------|----------|-----------------|
+| Microservice | `app.security.api-key` | `aswallet-dev-api-key` |
+| Main app | `app.risk-service.api-key` | `aswallet-dev-api-key` |
+
+Same env override for both apps:
+
+```powershell
+$env:RISK_SERVICE_API_KEY = "your-secret"
+```
+
+- Missing / wrong key → **401 Unauthorized**
+- Splash `/` and static assets stay public
+- Main app sends the key via Feign `RiskServiceFeignConfig`
+- Filter: `SVC.Security.ApiKeyAuthFilter`
+
+### Manual check
+
+```powershell
+# Expect 401
+curl http://localhost:8081/api/risk-assessments/manual-reviews
+
+# Expect 200 / []
+curl http://localhost:8081/api/risk-assessments/manual-reviews -H "X-API-Key: aswallet-dev-api-key"
+```
 
 ---
 
@@ -255,6 +296,7 @@ spring.jpa.hibernate.ddl-auto=update
 
 app.risk.threshold.review=40
 app.risk.threshold.block=70
+app.security.api-key=${RISK_SERVICE_API_KEY:aswallet-dev-api-key}
 ```
 
 ---
@@ -288,9 +330,9 @@ mvn test
 | `RiskScoringServiceTest` | Unit | Scoring rules (5 tests) |
 | `RiskAssessmentServiceTest` | Unit | Service logic (9 tests) |
 | `RiskAssessmentServiceIntegrationTest` | Integration | H2 full stack (3 tests) |
-| `RiskAssessmentControllerWebMvcTest` | API | All REST endpoints (11 tests) |
+| `RiskAssessmentControllerWebMvcTest` | API | REST endpoints + API key 401 (13 tests) |
 
-**~28** test methods total. Target 70%+ line coverage ✅.
+**~30** test methods total. Target 70%+ line coverage ✅.
 
 ---
 
@@ -319,6 +361,8 @@ src/main/java/SVC/
 ├── Exceptions/
 │   ├── InvalidReviewStateException.java
 │   └── RiskAssessmentNotFoundException.java
+├── Security/
+│   └── ApiKeyAuthFilter.java
 └── GlobalExceptionHandler/
     └── GlobalExceptionHandler.java
 
@@ -341,17 +385,18 @@ src/test/java/SVC/
 
 ## Spring Advanced Checklist
 
-| Requirement | Status |
-|-------------|--------|
-| Separate Spring Boot app | ✅ |
-| Separate database | ✅ |
-| ≥ 1 domain entity | ✅ |
-| ≥ 2 functionalities from UI | ✅ assess + admin review |
+| Requirement                     | Status |
+|---------------------------------|--------|
+| Separate Spring Boot app        | ✅ |
+| Separate database               | ✅ |
+| ≥ 1 domain entity               | ✅ |
+| ≥ 2 functionalities from UI     | ✅ assess + admin review |
 | ≥ 1 GET + ≥ 2 POST/PATCH/DELETE | ✅ |
-| Feign from main app | ✅ |
-| Validation + error handling | ✅ |
-| Logging | ✅ |
-| 70% test coverage | ✅ |
+| Feign from main app             | ✅ |
+| Validation + error handling     | ✅ |
+| Logging                         | ✅ |
+| 77% ++ test coverage            | ✅ |
+| API key on `/api/**`            | ✅ `ApiKeyAuthFilter` |
 
 ---
 

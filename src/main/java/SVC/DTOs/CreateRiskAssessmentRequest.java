@@ -14,6 +14,7 @@ import java.util.UUID;
 @NoArgsConstructor
 public class CreateRiskAssessmentRequest {
 
+    @NotNull(message = "Transaction reference is required.")
     private UUID transactionRef;
 
     @NotBlank(message = "Sender username is required.")

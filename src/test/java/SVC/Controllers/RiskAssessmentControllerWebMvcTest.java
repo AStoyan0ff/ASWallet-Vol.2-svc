@@ -6,14 +6,17 @@ import SVC.Enums.RiskDecision;
 import SVC.Enums.RiskLevel;
 import SVC.Exceptions.InvalidReviewStateException;
 import SVC.GlobalExceptionHandler.GlobalExceptionHandler;
+import SVC.Security.ApiKeyAuthFilter;
 import SVC.Services.RiskAssessmentService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -33,14 +36,44 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(RiskAssessmentController.class)
-@Import(GlobalExceptionHandler.class)
+@Import({GlobalExceptionHandler.class, ApiKeyAuthFilter.class})
+@TestPropertySource(properties = "app.security.api-key=test-api-key")
 class RiskAssessmentControllerWebMvcTest {
+
+    private static final String API_KEY = "test-api-key";
 
     @Autowired
     private MockMvc mockMvc;
 
     @MockitoBean
     private RiskAssessmentService riskAssessmentService;
+
+    private static RequestPostProcessor withApiKey() {
+        return request -> {
+            request.addHeader(ApiKeyAuthFilter.HEADER_NAME, API_KEY);
+            return request;
+        };
+    }
+
+    @Test
+    void postAssessment_withoutApiKey_returnsUnauthorized() throws Exception {
+        mockMvc
+            .perform(post("/api/risk-assessments")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.error").value("Unauthorized. Valid X-API-Key header is required."));
+    }
+
+    @Test
+    void postAssessment_withWrongApiKey_returnsUnauthorized() throws Exception {
+        mockMvc
+            .perform(post("/api/risk-assessments")
+                .header(ApiKeyAuthFilter.HEADER_NAME, "wrong-key")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+            .andExpect(status().isUnauthorized());
+    }
 
     @Test
     void postAssessment_returnsCreatedResponse() throws Exception {
@@ -63,23 +96,25 @@ class RiskAssessmentControllerWebMvcTest {
 
         mockMvc
             .perform(post("/api/risk-assessments")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content
-                ("""
-                    {
-                        "senderUsername": "Plamen",
-                        "receiverUsername": "Georgi",
-                        "amount": 25.00,
-                        "senderBalance": 500.00,
-                        "withdrawnToday": 0.00,
-                        "dailyLimit": 500.00,
-                        "transfersTodayCount": 0,
-                        "receiverHasBankCard": true,
-                        "newReceiver": false,
-                        "accountStatus": "ACTIVE",
-                        "hourOfDay": 14
-                    }
-                """))
+                .with(withApiKey())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content
+                    ("""
+                        {
+                            "transactionRef": "550e8400-e29b-41d4-a716-446655440000",
+                            "senderUsername": "Plamen",
+                            "receiverUsername": "Georgi",
+                            "amount": 25.00,
+                            "senderBalance": 500.00,
+                            "withdrawnToday": 0.00,
+                            "dailyLimit": 500.00,
+                            "transfersTodayCount": 0,
+                            "receiverHasBankCard": true,
+                            "newReceiver": false,
+                            "accountStatus": "ACTIVE",
+                            "hourOfDay": 14
+                        }
+                    """))
 
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.id").value(id.toString()))
@@ -91,20 +126,21 @@ class RiskAssessmentControllerWebMvcTest {
     void postAssessment_validationError_returnsBadRequest() throws Exception {
         mockMvc
             .perform(post("/api/risk-assessments")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content
-                ("""
-                    {
-                        "senderUsername": "",
-                        "receiverUsername": "Georgi",
-                        "amount": 0,
-                        "senderBalance": 500.00,
-                        "withdrawnToday": 0.00,
-                        "dailyLimit": 500.00,
-                        "accountStatus": "ACTIVE",
-                        "hourOfDay": 14
-                    }
-                """))
+                .with(withApiKey())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content
+                    ("""
+                        {
+                            "senderUsername": "",
+                            "receiverUsername": "Georgi",
+                            "amount": 0,
+                            "senderBalance": 500.00,
+                            "withdrawnToday": 0.00,
+                            "dailyLimit": 500.00,
+                            "accountStatus": "ACTIVE",
+                            "hourOfDay": 14
+                        }
+                    """))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.fieldErrors.senderUsername").exists());
     }
@@ -128,7 +164,7 @@ class RiskAssessmentControllerWebMvcTest {
         );
 
         mockMvc
-            .perform(get("/api/risk-assessments/{id}", id))
+            .perform(get("/api/risk-assessments/{id}", id).with(withApiKey()))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.decision").value("REVIEW"))
             .andExpect(jsonPath("$.status").value("PENDING"));
@@ -152,7 +188,7 @@ class RiskAssessmentControllerWebMvcTest {
         ));
 
         mockMvc
-            .perform(get("/api/risk-assessments").param("status", "PENDING"))
+            .perform(get("/api/risk-assessments").param("status", "PENDING").with(withApiKey()))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].status").value("PENDING"));
     }
@@ -178,14 +214,15 @@ class RiskAssessmentControllerWebMvcTest {
 
         mockMvc
             .perform(patch("/api/risk-assessments/{id}/review", id)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content
-                ("""
-                    {
-                        "status": "APPROVED",
-                        "reviewedBy": "admin"
-                    }
-                """))
+                .with(withApiKey())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content
+                    ("""
+                        {
+                            "status": "APPROVED",
+                            "reviewedBy": "admin"
+                        }
+                    """))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("APPROVED"))
             .andExpect(jsonPath("$.reviewedBy").value("admin"));
@@ -202,14 +239,15 @@ class RiskAssessmentControllerWebMvcTest {
 
         mockMvc
             .perform(patch("/api/risk-assessments/{id}/review", id)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content
-                ("""
-                    {
-                        "status": "APPROVED",
-                        "reviewedBy": "admin"
-                    }
-                """))
+                .with(withApiKey())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content
+                    ("""
+                        {
+                            "status": "APPROVED",
+                            "reviewedBy": "admin"
+                        }
+                    """))
             .andExpect(status().isConflict())
             .andExpect(jsonPath("$.error").value("Only pending assessments can be reviewed."));
 
@@ -234,7 +272,7 @@ class RiskAssessmentControllerWebMvcTest {
         ));
 
         mockMvc
-            .perform(get("/api/risk-assessments/manual-reviews"))
+            .perform(get("/api/risk-assessments/manual-reviews").with(withApiKey()))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].decision").value("REVIEW"))
             .andExpect(jsonPath("$[0].status").value("APPROVED"));
@@ -246,7 +284,7 @@ class RiskAssessmentControllerWebMvcTest {
     void deleteManualReviews_returnsNoContent() throws Exception {
 
         mockMvc
-            .perform(delete("/api/risk-assessments/manual-reviews"))
+            .perform(delete("/api/risk-assessments/manual-reviews").with(withApiKey()))
             .andExpect(status().isNoContent());
 
         verify(riskAssessmentService).deleteAllByDecision(RiskDecision.REVIEW);
@@ -270,7 +308,7 @@ class RiskAssessmentControllerWebMvcTest {
         ));
 
         mockMvc
-            .perform(get("/api/risk-assessments").param("decision", "REVIEW"))
+            .perform(get("/api/risk-assessments").param("decision", "REVIEW").with(withApiKey()))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].decision").value("REVIEW"))
             .andExpect(jsonPath("$[0].status").value("APPROVED"));
@@ -283,7 +321,8 @@ class RiskAssessmentControllerWebMvcTest {
 
         mockMvc
             .perform(delete("/api/risk-assessments")
-            .param("decision", "REVIEW"))
+                .param("decision", "REVIEW")
+                .with(withApiKey()))
             .andExpect(status().isNoContent());
 
         verify(riskAssessmentService).deleteAllByDecision(RiskDecision.REVIEW);
@@ -294,7 +333,8 @@ class RiskAssessmentControllerWebMvcTest {
 
         mockMvc
             .perform(delete("/api/risk-assessments")
-            .param("status", "PENDING"))
+                .param("status", "PENDING")
+                .with(withApiKey()))
             .andExpect(status().isNoContent());
 
         verify(riskAssessmentService).deleteAllByStatus(AssessmentStatus.PENDING);

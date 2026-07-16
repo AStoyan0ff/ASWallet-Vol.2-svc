@@ -24,7 +24,7 @@ public class TransferRiskAssessment {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "transaction_ref")
+    @Column(name = "transaction_ref", nullable = false, unique = true)
     private UUID transactionRef;
 
     @Column(name = "sender_username", nullable = false)
