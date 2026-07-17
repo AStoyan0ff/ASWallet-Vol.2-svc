@@ -1,6 +1,17 @@
-<h1 align="center">
-  💳 ASWallet-Vol.2-svc 💳
-</h1>
+<p align="center">
+  <img
+    src="https://readme-typing-svg.demolab.com?font=Orbitron&size=42&duration=2500&pause=1000&color=E53935&center=true&vCenter=true&width=700&lines=%F0%9F%92%B0+ASWallet-Vol.2-svc+%F0%9F%92%B0"
+    alt="ASWallet-Vol.2-svc"
+  />
+</p>
+
+---
+
+<p align="center">
+  <img src="src/main/resources/static/images/screenShot.png" width="500" alt="">
+</p>
+
+---
 
 <p align="center">
   Transfer Risk Assessment — REST Microservice for ASWallet-Vol.2
@@ -13,6 +24,8 @@
   <img src="https://img.shields.io/badge/Port-8081-blue">
   <img src="https://img.shields.io/badge/Security-API%20Key-success">
 </p>
+
+---
 
 Standalone **Transfer Risk Assessment** microservice for [ASWallet-Vol.2](https://github.com/AStoyan0ff/ASWallet-Vol.2).
 
