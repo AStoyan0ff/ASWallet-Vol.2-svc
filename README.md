@@ -8,7 +8,7 @@
 ---
 
 <p align="center">
-  <img src="src/main/resources/static/images/screenShot.png" width="500" alt="">
+  <img src="src/main/resources/static/images/screenShot.png" width="520" alt="">
 </p>
 
 ---
@@ -55,30 +55,30 @@ Consumed by the main app via **Spring Cloud OpenFeign** on transfer confirm and 
 
 ## Project Inventory
 
-| Area | Count                                         |
-|------|-----------------------------------------------|
+| Area                     | Count                                         |
+|--------------------------|-----------------------------------------------|
 | Java source files (main) | **19**                                        |
-| REST controllers | **1**                                         |
-| Services | **2**                                         |
-| JPA entities | **1**                                         |
-| Repositories | **1**                                         |
-| DTOs | **3**                                         |
-| Enums | **3**                                         |
-| Custom exceptions | **2**                                         |
-| Test classes | **4**                                         |
-| Test methods | **+-30**                                      |
-| Static files | **3** (`index.html`, `home.css`, `hello.png`) |
-| Line coverage | **70%+** ✅                                    |
+| REST controllers         | **1**                                         |
+| Services                 | **2**                                         |
+| JPA entities             | **1**                                         |
+| Repositories             | **1**                                         |
+| DTOs                     | **3**                                         |
+| Enums                    | **3**                                         |
+| Custom exceptions        | **2**                                         |
+| Test classes             | **4**                                         |
+| Test methods             | **+-30**                                      |
+| Static files             | **3** (`index.html`, `home.css`, `hello.png`) |
+| Line coverage            | **70%+** ✅                                    |
 
 ---
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| Artifact | `ASWallet-Vol.2-svc` v1.0.0 |
-| Port | `8081` |
-| Database | MySQL `as_wallet_svc` (H2 in tests) |
+| Property | Value                                            |
+|----------|--------------------------------------------------|
+| Artifact | `ASWallet-Vol.2-svc` v1.0.0                      |
+| Port     | `8081`                                           |
+| Database | MySQL `as_wallet_svc` (H2 in tests)              |
 | Consumer | ASWallet-Vol.2 main app (`RiskAssessmentClient`) |
 
 **Responsibilities:**
@@ -92,16 +92,16 @@ Consumed by the main app via **Spring Cloud OpenFeign** on transfer confirm and 
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Language | Java 21 |
-| Framework | Spring Boot 4.0.6 |
-| API | Spring Web (REST) |
-| Persistence | Spring Data JPA |
-| Database | MySQL / H2 (tests) |
-| Validation | Jakarta Bean Validation |
-| Build | Maven |
-| Utilities | Lombok |
+| Layer       | Technology              |
+|-------------|-------------------------|
+| Language    | Java 21                 |
+| Framework   | Spring Boot 4.0.6       |
+| API         | Spring Web (REST)       |
+| Persistence | Spring Data JPA         |
+| Database    | MySQL / H2 (tests)      |
+| Validation  | Jakarta Bean Validation |
+| Build       | Maven                   |
+| Utilities   | Lombok                  |
 
 ---
 
@@ -109,25 +109,25 @@ Consumed by the main app via **Spring Cloud OpenFeign** on transfer confirm and 
 
 ### Entity
 
-| Entity | Table | Fields (key) |
-|--------|-------|--------------|
+| Entity                   | Table                       | Fields (key)                                                                                                                             |
+|--------------------------|-----------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
 | `TransferRiskAssessment` | `transfer_risk_assessments` | UUID id, `transactionRef`, usernames, amount, `riskScore`, `riskLevel`, `decision`, `status`, `reasons` (JSON), `reviewedBy`, timestamps |
 
 ### Enums (3)
 
-| Enum | Values |
-|------|--------|
-| `RiskDecision` | `ALLOW`, `REVIEW`, `BLOCK` |
-| `RiskLevel` | `LOW`, `MEDIUM`, `HIGH` |
+| Enum               | Values                            |
+|--------------------|-----------------------------------|
+| `RiskDecision`     | `ALLOW`, `REVIEW`, `BLOCK`        |
+| `RiskLevel`        | `LOW`, `MEDIUM`, `HIGH`           |
 | `AssessmentStatus` | `PENDING`, `APPROVED`, `REJECTED` |
 
 ### Decision → status on create
 
 | Decision | Initial status |
 |----------|----------------|
-| `ALLOW` | `APPROVED` |
-| `REVIEW` | `PENDING` |
-| `BLOCK` | `REJECTED` |
+| `ALLOW`  | `APPROVED`     |
+| `REVIEW` | `PENDING`      |
+| `BLOCK`  | `REJECTED`     |
 
 ---
 
@@ -137,15 +137,15 @@ Implemented in `RiskScoringService`.
 
 ### Rules
 
-| Rule | Points |
-|------|--------|
-| Amount > 80% of sender balance | +30 |
-| Would exceed daily withdraw limit | +40 |
-| ≥ 3 transfers today | +20 |
-| Night hours (23:00–05:59) | +15 |
-| First transfer to receiver | +10 |
-| Receiver has no bank card | +25 |
-| Non-ACTIVE account | immediate **BLOCK** (score 100) |
+| Rule                              | Points                          |
+|-----------------------------------|---------------------------------|
+| Amount > 80% of sender balance    | +30                             |
+| Would exceed daily withdraw limit | +40                             |
+| ≥ 3 transfers today               | +20                             |
+| Night hours (23:00–05:59)         | +15                             |
+| First transfer to receiver        | +10                             |
+| Receiver has no bank card         | +25                             |
+| Non-ACTIVE account                | immediate **BLOCK** (score 100) |
 
 ### Thresholds
 
@@ -154,11 +154,11 @@ app.risk.threshold.review=40
 app.risk.threshold.block=70
 ```
 
-| Score | Decision | Status |
-|-------|----------|--------|
-| 0–39 | `ALLOW` | `APPROVED` |
-| 40–69 | `REVIEW` | `PENDING` |
-| 70+ | `BLOCK` | `REJECTED` |
+| Score | Decision | Status     |
+|-------|----------|------------|
+| 0–39  | `ALLOW`  | `APPROVED` |
+| 40–69 | `REVIEW` | `PENDING`  |
+| 70+   | `BLOCK`  | `REJECTED` |
 
 ---
 
@@ -166,15 +166,15 @@ app.risk.threshold.block=70
 
 Base: `/api/risk-assessments`
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/risk-assessments` | Create assessment |
-| `GET` | `/api/risk-assessments/{id}` | Get by id |
-| `GET` | `/api/risk-assessments` | List by `status` (default `PENDING`) or `decision` |
-| `GET` | `/api/risk-assessments/manual-reviews` | All `decision=REVIEW` (history) |
-| `PATCH` | `/api/risk-assessments/{id}/review` | Approve/reject pending review |
-| `DELETE` | `/api/risk-assessments` | Bulk delete by `status` or `decision` |
-| `DELETE` | `/api/risk-assessments/manual-reviews` | Delete all manual reviews |
+| Method   | Path                                   | Description                                        |
+|----------|----------------------------------------|----------------------------------------------------|
+| `POST`   | `/api/risk-assessments`                | Create assessment                                  |
+| `GET`    | `/api/risk-assessments/{id}`           | Get by id                                          |
+| `GET`    | `/api/risk-assessments`                | List by `status` (default `PENDING`) or `decision` |
+| `GET`    | `/api/risk-assessments/manual-reviews` | All `decision=REVIEW` (history)                    |
+| `PATCH`  | `/api/risk-assessments/{id}/review`    | Approve/reject pending review                      |
+| `DELETE` | `/api/risk-assessments`                | Bulk delete by `status` or `decision`              |
+| `DELETE` | `/api/risk-assessments/manual-reviews` | Delete all manual reviews                          |
 
 ### Create
 
@@ -215,13 +215,13 @@ Only `decision=REVIEW` + `status=PENDING` can be reviewed.
 
 ### Feign mapping
 
-| Main app action | Feign call |
-|-----------------|------------|
-| Transfer confirm | `POST /api/risk-assessments` |
-| Admin risk reviews page | `GET /api/risk-assessments/manual-reviews` |
-| Admin approve/reject | `PATCH /api/risk-assessments/{id}/review` |
-| Admin delete all | `DELETE /api/risk-assessments/manual-reviews` |
-| Load single assessment | `GET /api/risk-assessments/{id}` |
+| Main app action         | Feign call                                    |
+|-------------------------|-----------------------------------------------|
+| Transfer confirm        | `POST /api/risk-assessments`                  |
+| Admin risk reviews page | `GET /api/risk-assessments/manual-reviews`    |
+| Admin approve/reject    | `PATCH /api/risk-assessments/{id}/review`     |
+| Admin delete all        | `DELETE /api/risk-assessments/manual-reviews` |
+| Load single assessment  | `GET /api/risk-assessments/{id}`              |
 
 ### Main app properties
 
@@ -233,13 +233,13 @@ app.risk-service.api-key=${RISK_SERVICE_API_KEY:aswallet-dev-api-key}
 spring.cloud.openfeign.httpclient.hc5.enabled=true
 ```
 
-### Wallet behaviour (main app)
+### Wallet behavior (main app)
 
-| MS decision | Wallet `Transaction.status` |
-|-------------|------------------------------|
-| `ALLOW` | `PENDING` → scheduler completes |
-| `REVIEW` | `PENDING_RISK_REVIEW` → admin action |
-| `BLOCK` | Transfer not created |
+| MS decision | Wallet `Transaction.status`          |
+|-------------|--------------------------------------|
+| `ALLOW`     | `PENDING` → scheduler completes      |
+| `REVIEW`    | `PENDING_RISK_REVIEW` → admin action |
+| `BLOCK`     | Transfer not created                 |
 
 ---
 
@@ -250,21 +250,16 @@ spring.cloud.openfeign.httpclient.hc5.enabled=true
 All `/api/**` endpoints require:
 
 ```http
-X-API-Key: <shared-secret>
+X-API-Key: <aswallet-dev-api-key>
 ```
 
-| Side | Property | Default (local) |
-|------|----------|-----------------|
-| Microservice | `app.security.api-key` | `aswallet-dev-api-key` |
-| Main app | `app.risk-service.api-key` | `aswallet-dev-api-key` |
+| Side         | Property                   | Default (local)        |
+|--------------|----------------------------|------------------------|
+| Microservice | `app.security.api-key`     | `aswallet-dev-api-key` |
+| Main app     | `app.risk-service.api-key` | `aswallet-dev-api-key` |
 
 Same env override for both apps:
 
-```powershell
-$env:RISK_SERVICE_API_KEY = "your-secret"
-```
-
-- Missing / wrong key → **401 Unauthorized**
 - Splash `/` and static assets stay public
 - Main app sends the key via Feign `RiskServiceFeignConfig`
 - Filter: `SVC.Security.ApiKeyAuthFilter`
@@ -384,7 +379,7 @@ src/main/resources/
 └── static/
     ├── index.html
     ├── css/home.css
-    └── images/hello.png
+    └── images/hello.png/screenShot.png
 
 src/test/java/SVC/
 ├── Controllers/RiskAssessmentControllerWebMvcTest.java
