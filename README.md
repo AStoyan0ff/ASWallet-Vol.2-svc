@@ -68,7 +68,7 @@ Consumed by the main app via **Spring Cloud OpenFeign** on transfer confirm and 
 | Test classes             | **4**                                         |
 | Test methods             | **+-30**                                      |
 | Static files             | **3** (`index.html`, `home.css`, `hello.png`) |
-| Line coverage            | **70%+** ✅                                    |
+| Line coverage            | **90%** ✅                                     |
 
 ---
 
@@ -280,11 +280,11 @@ curl http://localhost:8081/api/risk-assessments/manual-reviews -H "X-API-Key: as
 
 Minimal landing page at **`GET /`** (not the primary integration surface):
 
-| File | Purpose |
-|------|---------|
-| `static/index.html` | Simple splash: “ASWallet Risk Service Port: 8081” |
-| `static/css/home.css` | Full-viewport image layout |
-| `static/images/hello.png` | Background image |
+| File                      | Purpose                                           |
+|---------------------------|---------------------------------------------------|
+| `static/index.html`       | Simple splash: “ASWallet Risk Service Port: 8081” |
+| `static/css/home.css`     | Full-viewport image layout                        |
+| `static/images/hello.png` | Background image                                  |
 
 API integration uses `/api/risk-assessments/*`.
 
@@ -323,7 +323,7 @@ mvn spring-boot:run
 - API: **http://localhost:8081/api/risk-assessments/manual-reviews**
 - Splash: **http://localhost:8081/**
 
-Start before or with main app on `:8080`.
+Start before or with the main app on `:8080`.
 
 ---
 
@@ -340,7 +340,7 @@ mvn test
 | `RiskAssessmentServiceIntegrationTest` | Integration | H2 full stack (3 tests) |
 | `RiskAssessmentControllerWebMvcTest` | API | REST endpoints + API key 401 (13 tests) |
 
-**~30** test methods total. Target 70%+ line coverage ✅.
+**~30** test methods total. Target 90%+ line coverage ✅.
 
 ---
 
@@ -393,18 +393,18 @@ src/test/java/SVC/
 
 ## Spring Advanced Checklist
 
-| Requirement                     | Status |
-|---------------------------------|--------|
-| Separate Spring Boot app        | ✅ |
-| Separate database               | ✅ |
-| ≥ 1 domain entity               | ✅ |
+| Requirement                     | Status                  |
+|---------------------------------|-------------------------|
+| Separate Spring Boot app        | ✅                       |
+| Separate database               | ✅                       |
+| ≥ 1 domain entity               | ✅                       |
 | ≥ 2 functionalities from UI     | ✅ assess + admin review |
-| ≥ 1 GET + ≥ 2 POST/PATCH/DELETE | ✅ |
-| Feign from main app             | ✅ |
-| Validation + error handling     | ✅ |
-| Logging                         | ✅ |
-| 77% ++ test coverage            | ✅ |
-| API key on `/api/**`            | ✅ `ApiKeyAuthFilter` |
+| ≥ 1 GET + ≥ 2 POST/PATCH/DELETE | ✅                       |
+| Feign from main app             | ✅                       |
+| Validation + error handling     | ✅                       |
+| Logging                         | ✅                       |
+| 90%  test coverage              | ✅                       |
+| API key on `/api/**`            | ✅ `ApiKeyAuthFilter`    |
 
 ---
 
