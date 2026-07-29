@@ -1,6 +1,6 @@
 <p align="center">
   <img
-    src="https://readme-typing-svg.demolab.com?font=Orbitron&size=42&duration=2500&pause=1000&color=E53935&center=true&vCenter=true&width=700&lines=%F0%9F%92%B0+ASWallet-Vol.2-svc+%F0%9F%92%B0"
+    src="https://readme-typing-svg.demolab.com?font=Orbitron&size=42&duration=2500&pause=1000&color=E53935&center=true&vCenter=true&width=700&lines=ASWallet-Vol.2-svc"
     alt="ASWallet-Vol.2-svc"
   />
 </p>
@@ -8,7 +8,7 @@
 ---
 
 <p align="center">
-  <img src="src/main/resources/static/images/screenShot.png" width="520" alt="">
+  <img src="src/main/resources/static/images/screenShot.png" width="560" alt="">
 </p>
 
 ---
@@ -68,7 +68,7 @@ Consumed by the main app via **Spring Cloud OpenFeign** on transfer confirm and 
 | Test classes             | **4**                                         |
 | Test methods             | **+-30**                                      |
 | Static files             | **3** (`index.html`, `home.css`, `hello.png`) |
-| Line coverage            | **90%** ✅                                     |
+| Line coverage            | **91%** ✅                                     |
 
 ---
 
@@ -297,8 +297,8 @@ spring.application.name=ASWallet-Vol.2-svc
 server.port=8081
 
 spring.datasource.url=jdbc:mysql://localhost:3306/as_wallet_svc?createDatabaseIfNotExist=true
-spring.datasource.username=root
-spring.datasource.password=${DB_PASSWORD:change-me}
+spring.datasource.username= your user
+spring.datasource.password= your pass
 
 spring.jpa.hibernate.ddl-auto=update
 
@@ -314,11 +314,7 @@ app.security.api-key=${RISK_SERVICE_API_KEY:aswallet-dev-api-key}
 ```sql
 CREATE DATABASE IF NOT EXISTS as_wallet_svc;
 ```
-
-```powershell
-$env:DB_PASSWORD = "your_mysql_password"
-mvn spring-boot:run
-```
+---
 
 - API: **http://localhost:8081/api/risk-assessments/manual-reviews**
 - Splash: **http://localhost:8081/**
@@ -333,12 +329,12 @@ Start before or with the main app on `:8080`.
 mvn test
 ```
 
-| Test class | Type | Focus |
-|------------|------|-------|
-| `RiskScoringServiceTest` | Unit | Scoring rules (5 tests) |
-| `RiskAssessmentServiceTest` | Unit | Service logic (9 tests) |
-| `RiskAssessmentServiceIntegrationTest` | Integration | H2 full stack (3 tests) |
-| `RiskAssessmentControllerWebMvcTest` | API | REST endpoints + API key 401 (13 tests) |
+| Test class                             | Type        | Focus                                   |
+|----------------------------------------|-------------|-----------------------------------------|
+| `RiskScoringServiceTest`               | Unit        | Scoring rules (5 tests)                 |
+| `RiskAssessmentServiceTest`            | Unit        | Service logic (9 tests)                 |
+| `RiskAssessmentServiceIntegrationTest` | Integration | H2 full stack (3 tests)                 |
+| `RiskAssessmentControllerWebMvcTest`   | API         | REST endpoints + API key 401 (13 tests) |
 
 **~30** test methods total. Target 90%+ line coverage ✅.
 
